@@ -11,7 +11,9 @@ namespace Fuzzy_Sets_Clusterization
     {
         static void Main(string[] args) 
         {
+            var excel = new ExcelQueryFactory("../../data.xlsx");
             excel.ReadOnly = true;
+            var data = excel.Worksheet<SkillData>();
         }
     }
 }
