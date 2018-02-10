@@ -3,7 +3,7 @@
     internal enum SkillSets
     {
         Soft,
-        Medium,
+        Middle,
         Hard,
         All
     }

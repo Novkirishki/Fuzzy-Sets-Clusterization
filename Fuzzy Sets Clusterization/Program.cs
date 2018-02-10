@@ -1,6 +1,8 @@
 ﻿using LinqToExcel;
+using OfficeOpenXml;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Fuzzy_Sets_Clusterization
@@ -8,7 +10,7 @@ namespace Fuzzy_Sets_Clusterization
     class Program
     {
         const SkillSets skillSet = SkillSets.Hard;
-        const int FuzzyCoeff = 2;
+        const double FuzzyCoeff = 2;
         const int EuclideanDistancePower = 2;
         const double TerminationCriteria = 0.1;
         const int IterationsCount = 10;
@@ -34,6 +36,36 @@ namespace Fuzzy_Sets_Clusterization
             }
 
             var result = matrices[errorData.IndexOf(errorData.Min())];
+            SaveData(result);
+        }
+
+        private static void SaveData(List<List<double>> data)
+        {
+
+            var newFile = new FileInfo("../../results.xlsx");
+            using (var package = new ExcelPackage(newFile))
+            {
+                // Add a new worksheet to the empty workbook
+                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add(skillSet.ToString());
+
+                //Add the headers
+                for (int i = 1; i <= data.First().Count; i++)
+                {
+                    worksheet.Cells[1, i].Value = "Cluster" + i;
+                }
+
+                for (int i = 1; i <= data.Count; i++)
+                {
+                    var membership = data[i - 1];
+                    for (int j = 1; j <= membership.Count; j++)
+                    {
+                        worksheet.Cells[i + 1, j].Value = membership[j - 1];
+                    }
+
+                }
+
+                package.Save();
+            }
         }
 
         private static int DetermineOptimalNumberOfClusters(List<List<double>> points)
