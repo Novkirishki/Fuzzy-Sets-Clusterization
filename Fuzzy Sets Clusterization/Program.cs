@@ -7,11 +7,11 @@ namespace Fuzzy_Sets_Clusterization
 {
     class Program
     {
-        const int NumberOfClusters = 2;
         const SkillSets skillSet = SkillSets.Hard;
         const int FuzzyCoeff = 2;
         const int EuclideanDistancePower = 2;
         const double TerminationCriteria = 0.1;
+        const int IterationsCount = 10;
 
         static void Main(string[] args) 
         {
@@ -19,22 +19,78 @@ namespace Fuzzy_Sets_Clusterization
             excel.ReadOnly = true;
             var data = excel.Worksheet<SkillData>().ToList();
             var points = TransformData(data, skillSet);
-            
-            var initialCentroids = GetClusterCentroids(numberOfClusters: NumberOfClusters, points: points);
-            var initialMembershipMatrix = CalculateMembershipMatrix(points, initialCentroids);
-            var result = Clusterize(points, initialMembershipMatrix, NumberOfClusters, TerminationCriteria);
+            var numberOfClusters = DetermineOptimalNumberOfClusters(points);
+
+            // algorithm
+            var errorData = new List<double>();
+            var matrices = new List<List<List<double>>>();
+            for (int j = 0; j < IterationsCount; j++)
+            {
+                var centroids = GetClusterCentroids(numberOfClusters, points: points);
+                var initialMembershipMatrix = CalculateMembershipMatrix(points, centroids);
+                var membershipMatrix = Clusterize(points, initialMembershipMatrix, numberOfClusters, TerminationCriteria, out centroids);
+                errorData.Add(CalculateError(membershipMatrix, centroids, points));
+                matrices.Add(membershipMatrix);
+            }
+
+            var result = matrices[errorData.IndexOf(errorData.Min())];
         }
 
-        private static List<List<double>> Clusterize(List<List<double>> points, List<List<double>> membershipMatrix, int numberOfClusters, double terminationCriteria)
+        private static int DetermineOptimalNumberOfClusters(List<List<double>> points)
         {
-            var centroids = CalculateCentroids(membershipMatrix, points, numberOfClusters);
+            var errorData = new List<double>();
+            for (int i = 2; i < 16; i++)
+            {
+                double error = 0;
+                for (int j = 0; j < IterationsCount; j++)
+                {
+                    var centroids = GetClusterCentroids(numberOfClusters: i, points: points);
+                    var initialMembershipMatrix = CalculateMembershipMatrix(points, centroids);
+                    var membershipMatrix = Clusterize(points, initialMembershipMatrix, i, TerminationCriteria, out centroids);
+                    error += CalculateError(membershipMatrix, centroids, points);
+                }
+
+                errorData.Add(error / IterationsCount);
+            }
+
+            var initialErrorValue = errorData[0];
+            var minimumErrorDiff = initialErrorValue / 10;
+            for (int i = 1; i < errorData.Count; i++)
+            {
+                var diff = errorData[i - 1] - errorData[i];
+                if (diff < minimumErrorDiff)
+                {
+                    return i + 1;
+                }
+            }
+
+            return errorData.Count + 1;
+        }
+
+        private static double CalculateError(List<List<double>> membershipMatrix, List<List<double>> centroids, List<List<double>> points)
+        {
+            double error = 0;
+            for (int i = 0; i < points.Count; i++)
+            {
+                for (int j = 0; j < centroids.Count; j++)
+                {
+                    error += (Math.Pow(membershipMatrix[i][j], FuzzyCoeff) * CalculateEuclideanDistance(points[i], centroids[j], 2));
+                }
+            }
+
+            return error;
+        }
+
+        private static List<List<double>> Clusterize(List<List<double>> points, List<List<double>> membershipMatrix, int numberOfClusters, double terminationCriteria, out List<List<double>> centroids)
+        {
+            centroids = CalculateCentroids(membershipMatrix, points, numberOfClusters);
             var matrix = CalculateMembershipMatrix(points, centroids);
             if (CompareMembershipMatrices(matrix, membershipMatrix) < TerminationCriteria)
             {
                 return matrix;
             }
 
-            return Clusterize(points, matrix, numberOfClusters, terminationCriteria);
+            return Clusterize(points, matrix, numberOfClusters, terminationCriteria, out centroids);
         }
 
         private static double CompareMembershipMatrices(List<List<double>> membershipMatrix, List<List<double>> membershipMatrixToCompare)
